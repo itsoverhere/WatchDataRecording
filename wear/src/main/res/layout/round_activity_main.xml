@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
+    android:layout_height="match_parent" tools:context=".MainActivity" tools:deviceIds="wear_round"
+    android:background="#afb42b"
+    android:id="@+id/background">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="Large Text"
+        android:id="@+id/tv_status"
+        android:layout_above="@+id/tv_activity"
+        android:layout_centerHorizontal="true" />
+
+    <TextView android:id="@id/tv_activity" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true" android:text="@string/hello_round" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Change Activity"
+        android:padding="10dp"
+        android:id="@+id/button_change"
+        android:layout_centerHorizontal="true"
+        android:background="#456c2d"
+        android:layout_below="@id/tv_activity" />
+
+
+</RelativeLayout>
