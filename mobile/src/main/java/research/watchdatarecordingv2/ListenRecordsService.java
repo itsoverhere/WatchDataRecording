@@ -25,13 +25,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 
-/**
- * An {@link IntentService} subclass for handling asynchronous task requests in
- * a service on a separate handler thread.
- * <p/>
- * TODO: Customize class - update intent actions, extra parameters and static
- * helper methods.
- */
 public class ListenRecordsService extends IntentService {
 
     final static String TAG = " ListenRecordsService";
@@ -46,8 +39,7 @@ public class ListenRecordsService extends IntentService {
     private GoogleApiClient client;
 
     String log = "";
-    String filename = "";
-    static StringBuffer sb = new StringBuffer("");
+    StringBuffer sb = new StringBuffer("");
 
     public ListenRecordsService() {
         super("ListenRecordsService");
@@ -55,12 +47,9 @@ public class ListenRecordsService extends IntentService {
 
     @Override
     protected void onHandleIntent(Intent intent) {
-        Log.i(TAG,"onhadleintent");
         if (intent != null) {
             final String action = intent.getAction();
-            Log.i(TAG,"action is " + action);
             if (ACTION_LISTEN.equals(action)) {
-                Log.i(TAG,"actionlitsen");
                 init();
             }
         }
@@ -124,17 +113,6 @@ public class ListenRecordsService extends IntentService {
             }
         }
     };
-//
-//    @Override
-//    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-//        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-//        if(requestCode == REQUEST_CODE_WRITE_EXTERNAL_STORAGE &&
-//                permissions[0].equals(Manifest.permission.WRITE_EXTERNAL_STORAGE) &&
-//                grantResults[0] == PackageManager.PERMISSION_GRANTED){
-//
-//            ();
-//        }
-//    }
 
     public void saveFile(){
         // create folder
@@ -165,6 +143,8 @@ public class ListenRecordsService extends IntentService {
 
         Wearable.DataApi.removeListener(client, dataListener);
         client.disconnect();
+
+        stopSelf();
     }
 
     public void notifyUserOfSavedFile(String fileName){

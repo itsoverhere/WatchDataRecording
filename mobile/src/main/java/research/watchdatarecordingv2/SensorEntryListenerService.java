@@ -3,6 +3,7 @@ package research.watchdatarecordingv2;
 import android.content.Intent;
 import android.util.Log;
 
+import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.WearableListenerService;
 
@@ -28,13 +29,23 @@ public class SensorEntryListenerService extends WearableListenerService {
     public SensorEntryListenerService() {
     }
 
+    @Override
+    public void onDataChanged(DataEventBuffer dataEvents) {
+        super.onDataChanged(dataEvents);
+
+    }
 
     @Override
     public void onMessageReceived(MessageEvent messageEvent) {
         message = new String(messageEvent.getData(), Charset.forName("UTF-8"));
         Log.i(TAG, "message is " + message);
-        Intent saveFileIntent = new Intent(getBaseContext(), SaveFileActivity.class);
-        saveFileIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+//        Intent saveFileIntent = new Intent(getBaseContext(), SaveFileActivity.class);
+//        saveFileIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        Intent serviceIntent = new Intent(getBaseContext(), ListenRecordsService.class);
+        serviceIntent.setAction(ListenRecordsService.ACTION_LISTEN);
+        startService(serviceIntent);
+
 //        startActivity(saveFileIntent);
 //        if(!hasStartRecording){
 //            Log.i(TAG, "!hasStartRecording");

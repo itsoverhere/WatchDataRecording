@@ -23,14 +23,12 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEventBuffer;
-import com.google.android.gms.wearable.MessageApi;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 
-import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,7 +53,7 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
 
     static final String TAG_PRE_RECORD = "PRE RECORD";
     static final String TAG_RECORDING = "RECORDING";
-    static final String TAG_POST_RECORD = "POST RECORD";
+    static final String TAG = "MainActivity";
     static final int SPEECH_REQUEST_CODE = 1;
 
     final static String PATH = "/sensorentry";
@@ -88,7 +86,7 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
             xLinearAcceleration, yLinearAcceleration, zLinearAcceleration,
             significantMotion;
 
-    private String activity = "None";
+    private int activityCounter = 0;
 
     float[] m_lastMagFields = new float[3];
     float[] m_lastAccels = new float[3];
@@ -100,24 +98,22 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
     SimpleDateFormat sdf_date = new SimpleDateFormat("yyyy-MM-dd");
 
     TimerTask recordTask;
-    Timer timer;
+    Timer timerRecord;
 
     TimerTask sendTask;
-    Timer timer2; // for sending messages every second
+    Timer timerSend; // for sending messages every second
 
     private GoogleApiClient client;
 
     private String nodeId = "-"; // nodeId of the connected handheld device
 
     private TextView tvStatus; // display either ON if recording or OFF if not
-    private TextView tvActivity; // displays the current activity the user is performing
     private Button buttonChangeActivity;
     private RelativeLayout relLayoutBackground;
 
     private boolean isRecording = false;
     private boolean includesMetaData = false;
 
-    StringBuffer log = new StringBuffer("");
     StringBuffer messageToSend = new StringBuffer("");
 
     @Override
@@ -174,16 +170,13 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
 
         retrieveDeviceNode();
 
-        timer = new Timer();
-        timer.scheduleAtFixedRate((recordTask = new TimerTask() {
+        timerRecord = new Timer();
+        timerRecord.scheduleAtFixedRate((recordTask = new TimerTask() {
             @Override
             public void run() {
                 if (!nodeId.equals("-")) {
                     if (!includesMetaData) {
                         messageToSend.append(SensorEntry.toStringSensorNames());
-                        // log.append(currentMessage);
-                        // sendEntry(currentMessage);
-//                        sendLogs(currentMessage);
                         includesMetaData = true;
                     }
                     record();
@@ -191,14 +184,13 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
             }
         }), 0, 10); // every 10ms
 
-        timer2 = new Timer();
-        timer2.scheduleAtFixedRate((sendTask = new TimerTask() {
+        timerSend = new Timer();
+        timerSend.scheduleAtFixedRate((sendTask = new TimerTask() {
             @Override
             public void run() {
                 if (!nodeId.equals("-")) {
                     sendLogs(messageToSend.toString());
                     messageToSend = new StringBuffer("");
-                    // record();
                 }
             }
         }), 0, 1000); // every 1000ms
@@ -206,7 +198,6 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
     }
 
     private void stopLogs() {
-        Log.i("MA", "message in sendStop");
         client = getGoogleApiClient(this);
         if (nodeId != null) {
             new Thread(new stopLogsRunnable()).start();
@@ -214,10 +205,23 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
     }
 
     private void sendLogs(String message) {
-        Log.i("MA", "message in sendLogs is " + message);
         client = getGoogleApiClient(this);
         if (nodeId != null) {
             new Thread(new sendLogsRunnable(message)).start();
+        }
+    }
+
+    public void startLogs(){
+        client = getGoogleApiClient(this);
+        if (nodeId != null) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    client.blockingConnect(CONNECTION_TIME_OUT_MS, TimeUnit.MILLISECONDS);
+                    NodeApi.GetConnectedNodesResult nodes = Wearable.NodeApi.getConnectedNodes( client ).await();
+                    Wearable.MessageApi.sendMessage(client, nodes.getNodes().get(0).getId(), "/start", null).await();
+                }
+            }).start();
         }
     }
 
@@ -227,8 +231,6 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
         sendLogsRunnable(String message){
             this.message = message;
         }
-
-        sendLogsRunnable(){}
 
         @Override
         public void run() {
@@ -241,34 +243,10 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
                     .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
                         @Override
                         public void onResult(DataApi.DataItemResult dataItemResult) {
-                            if (dataItemResult.getStatus().isSuccess())
-                                Log.i("SEND RUNNABLE", "data item result of sending log is success " + dataItemResult.getStatus());
-                            else if (dataItemResult.getStatus().isCanceled())
-                                Log.i("SEND RUNNABLE", "data item result of sending log is cancelled " + dataItemResult.getStatus());
-                            else if (dataItemResult.getStatus().isInterrupted())
-                                Log.i("SEND RUNNABLE", "data item result of sending log is interrupted " + dataItemResult.getStatus());
+                            // this will only check if the data has been successfully stored to be send, but not received by connected nodes
+                            Log.i(TAG, "Sending data to handheld result " + dataItemResult.getStatus().toString());
                         }
                     });
-            // client.disconnect();
-            Log.i("RUN", "sendlogsrunnable 3rd");
-//
-//            putDataMapReq = PutDataMapRequest.create(PATH + System.currentTimeMillis() + "second");
-//            putDataMapReq.getDataMap().putString(MAPKEY_LOG, "hello");
-//            putDataReq = putDataMapReq.asPutDataRequest();
-//            Wearable.DataApi.putDataItem(client, putDataReq)
-//                    .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
-//                        @Override
-//                        public void onResult(DataApi.DataItemResult dataItemResult) {
-//                            if (dataItemResult.getStatus().isSuccess())
-//                                Log.i("SEND RUNNABLE", "2nd data item result of sending log is success " + dataItemResult.getStatus());
-//                            else if (dataItemResult.getStatus().isCanceled())
-//                                Log.i("SEND RUNNABLE", "2nd data item result of sending log is cancelled " + dataItemResult.getStatus());
-//                            else if (dataItemResult.getStatus().isInterrupted())
-//                                Log.i("SEND RUNNABLE", "2nd data item result of sending log is interrupted " + dataItemResult.getStatus());
-//                        }
-//                    });
-//            // client.disconnect();
-//            Log.i("RUN", "sendlogsrunnable 2nd 3rd");
         }
     }
 
@@ -281,61 +259,22 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
             client.blockingConnect(CONNECTION_TIME_OUT_MS, TimeUnit.MILLISECONDS);
             Wearable.DataApi.addListener(client, dataListener);
             PutDataMapRequest putDataMapReq = PutDataMapRequest.create("/stop"+System.currentTimeMillis());
-            putDataMapReq.getDataMap().putString(MAPKEY_LOG, "bogusbogusbogusbogusbogusbogusbogusbogusbogusbogusbogusbogusbogusbogusbogusbogusbogusbogusbogusbogus");
+            // putDataMapReq.getDataMap().putString(MAPKEY_LOG, "");
             PutDataRequest putDataReq = putDataMapReq.asPutDataRequest();
             Wearable.DataApi.putDataItem(client, putDataReq)
                     .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
                         @Override
                         public void onResult(DataApi.DataItemResult dataItemResult) {
-                            if (dataItemResult.getStatus().isSuccess())
-                                Log.i("STOP RUNNABLE", "data item result of sending log is success " + dataItemResult.getStatus());
-                            else if (dataItemResult.getStatus().isCanceled())
-                                Log.i("STOP RUNNABLE", "data item result of sending log is cancelled " + dataItemResult.getStatus());
-                            else if (dataItemResult.getStatus().isInterrupted())
-                                Log.i("STOP RUNNABLE", "data item result of sending log is interrupted " + dataItemResult.getStatus());
+                            Log.i(TAG, "Sending stop to handheld result " + dataItemResult.getStatus().toString());
                         }
                     });
             client.disconnect();
         }
     }
 
-    private void initiateTransfer() {
-        Log.i("MA", "initiate transfer");
-        client = getGoogleApiClient(this);
-        if (nodeId != null) {
-            new Thread(new initiateTransferRunnable("start")).start();
-        }
-    }
-
     @Override
     public void onDataChanged(DataEventBuffer dataEventBuffer) {
         // nothing, not expecting anything from the handheld
-    }
-
-    class initiateTransferRunnable implements Runnable{
-
-        String message;
-
-        public initiateTransferRunnable(String message){
-            this.message = message;
-        }
-
-        @Override
-        public void run() {
-            client.blockingConnect(CONNECTION_TIME_OUT_MS, TimeUnit.MILLISECONDS);
-            Wearable.MessageApi.sendMessage(client, nodeId, PATH, message.getBytes(Charset.forName("UTF-8"))).setResultCallback(
-                    new ResultCallback<MessageApi.SendMessageResult>() {
-                        @Override
-                        public void onResult(MessageApi.SendMessageResult sendMessageResult) {
-                            if(sendMessageResult.getStatus().isSuccess()){
-                                Log.e("MA", "success send");
-                            }
-                        }
-                    }
-            );
-            client.disconnect();
-            Log.i("MA", "message sent is " + message);
-        }
     }
 
     private GoogleApiClient getGoogleApiClient(Context context) {
@@ -369,7 +308,7 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
     DataApi.DataListener dataListener = new DataApi.DataListener() {
         @Override
         public void onDataChanged(DataEventBuffer dataEventBuffer) {
-
+            // not expecting any data from handheld
         }
     };
 
@@ -395,27 +334,16 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
     public void record() {
         SensorEntry sensorEntry = setReadSensorValues();
         String string = sdf_time.format(System.currentTimeMillis()) + ",";
-//        string += sensorEntry.toString();
         messageToSend.append(string + sensorEntry.toString());
-//
-//        Log.i(TAG_RECORDING, string);
-        //  log.append(string);
-        // sendLogs(string);
-
-        // sendEntry(string);
     }
 
     public void stopRecord() {
-//        sendEntry("FULL_STOP");
-//        sendEntry("gibberish");
-//        initiateTransfer();
         recordTask.cancel();
         sendTask.cancel();
-        timer.cancel();
-        timer2.cancel();
+        timerRecord.cancel();
+        timerSend.cancel();
         stopLogs();
 
-        // currentMessage = "FULL_STOP";
         Log.e("stopRecord", "success");
     }
 
@@ -546,6 +474,7 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
         SensorEntry.sensorNames.add(SensorEntry.LINEAR_ACCELERATION_Y);
         SensorEntry.sensorNames.add(SensorEntry.LINEAR_ACCELERATION_Z);
 //        SensorEntry.sensorNames.add(SensorEntry.SIGNIFICANT_MOTION);
+        SensorEntry.sensorNames.add(SensorEntry.ACTIVITY);
     }
 
     public SensorEntry setReadSensorValues(){
@@ -596,7 +525,7 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
 
         sensorEntry.setSensorValues(values);
 
-        sensorEntry.setActivity(activity);
+        sensorEntry.setActivity(String.valueOf(activityCounter));
 
 //        if(sensorEntry.getSensorValues().size()+1 != SensorEntry.sensorNames.size()){
 //            Log.i(TAG_RECORDING, "Detected sensor values = " + sensorEntry.getSensorValues().size() + "\n Set sensor values = " + SensorEntry.sensorNames.size());
@@ -779,6 +708,7 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
             if(isRecording){
                 tvStatus.setText("currently OFF");
                 relLayoutBackground.setBackgroundColor(Color.parseColor("#afb42b"));
+
                 // stop recording
                 stopRecord();
 
@@ -787,6 +717,7 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
                 relLayoutBackground.setBackgroundColor(Color.parseColor("#607d8b"));
 
                 // start recording
+//                startLogs(); // message handheld to start recording stream of data
                 startRecord();
             }
 
@@ -797,6 +728,9 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
     View.OnClickListener buttonChangeActivityListener = new View.OnClickListener() {
         @Override
         public void onClick(View view) {
+            activityCounter++;
+
+            // UI stuff
             buttonChangeActivity.setBackgroundColor(Color.parseColor("#FF162B08"));
             final Handler handler = new Handler();
             handler.postDelayed(new Runnable() {
@@ -831,8 +765,7 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
             String spokenText = results.get(0);
             // Do something with spokenText
             Log.i(TAG_RECORDING, "User said " + spokenText);
-            activity = spokenText;
-            tvActivity.setText(spokenText);
+            // activity = spokenText;
         }
         super.onActivityResult(requestCode, resultCode, data);
     }

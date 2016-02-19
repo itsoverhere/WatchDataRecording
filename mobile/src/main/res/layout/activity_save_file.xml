@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/tv_status"
-        android:text="Listening. Please wait, don't close."
+        android:text="Service has started, you may start recording."
         />
 
 </RelativeLayout>
