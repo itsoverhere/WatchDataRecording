@@ -8,6 +8,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.speech.RecognizerIntent;
 import android.support.wearable.activity.WearableActivity;
 import android.support.wearable.view.WatchViewStub;
@@ -104,8 +105,6 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
     TimerTask sendTask;
     Timer timer2; // for sending messages every second
 
-//    StringBuffer s
-
     private GoogleApiClient client;
 
     private String nodeId = "-"; // nodeId of the connected handheld device
@@ -130,7 +129,6 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
             @Override
             public void onLayoutInflated(WatchViewStub stub) {
                 tvStatus = (TextView) stub.findViewById(R.id.tv_status);
-                tvActivity = (TextView) stub.findViewById(R.id.tv_activity);
                 buttonChangeActivity = (Button) findViewById(R.id.button_change);
                 relLayoutBackground = (RelativeLayout) stub.findViewById(R.id.background);
 
@@ -149,8 +147,7 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
 
         // change background to black
         relLayoutBackground.setBackgroundColor(Color.parseColor("#000000"));
-        // change text to white
-        // textColor is already white
+        buttonChangeActivity.setBackgroundColor(Color.parseColor("#000000")); // darker green
     }
 
     @Override
@@ -162,18 +159,20 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
     public void onExitAmbient() {
         super.onExitAmbient();
         // change background to original color
-        if(!isRecording)
+        if(!isRecording){
             relLayoutBackground.setBackgroundColor(Color.parseColor("#AFB42B")); // green
-        else
+        }else {
             relLayoutBackground.setBackgroundColor(Color.parseColor("#607d8b")); // blue-gray
+        }
+
+        buttonChangeActivity.setBackgroundColor(Color.parseColor("#456c2d")); // lighter green
     }
 
     public void startRecord(){
         createSensorNames();
         registerListeners();
 
-        retrieveDeviceNode(); // DataAPI
-        // initiateTransfer();
+        retrieveDeviceNode();
 
         timer = new Timer();
         timer.scheduleAtFixedRate((recordTask = new TimerTask() {
@@ -181,7 +180,6 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
             public void run() {
                 if (!nodeId.equals("-")) {
                     if (!includesMetaData) {
-                        // String currentMessage = SensorEntry.toStringSensorNames();
                         messageToSend.append(SensorEntry.toStringSensorNames());
                         // log.append(currentMessage);
                         // sendEntry(currentMessage);
@@ -799,7 +797,15 @@ public class MainActivity extends WearableActivity implements DataApi.DataListen
     View.OnClickListener buttonChangeActivityListener = new View.OnClickListener() {
         @Override
         public void onClick(View view) {
-            displaySpeechRecognizer();
+            buttonChangeActivity.setBackgroundColor(Color.parseColor("#FF162B08"));
+            final Handler handler = new Handler();
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    buttonChangeActivity.setBackgroundColor(Color.parseColor("#456c2d")); //set the color to black
+                }
+            }, 200);
+            // displaySpeechRecognizer();
         }
     };
 

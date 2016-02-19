@@ -1,6 +1,7 @@
 package research.watchdatarecordingv2;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Environment;
@@ -26,7 +27,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 
-public class SaveFileActivity extends AppCompatActivity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, DataApi.DataListener {
+public class SaveFileActivity extends AppCompatActivity {
 
     final static int REQUEST_CODE_WRITE_EXTERNAL_STORAGE = 0;
     final static String TAG = "SaveFileActivty";
@@ -54,9 +55,14 @@ public class SaveFileActivity extends AppCompatActivity implements GoogleApiClie
 
         client = new GoogleApiClient.Builder(this)
                 .addApi(Wearable.API)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
+                .addConnectionCallbacks(connectionCallbacks)
+                .addOnConnectionFailedListener(onConnectionFailedListener)
                 .build();
+
+        Intent serviceIntent = new Intent();
+        serviceIntent.setClass(getBaseContext(), ListenRecordsService.class);
+        serviceIntent.setAction(ListenRecordsService.ACTION_LISTEN);
+        startService(serviceIntent);
     }
 
     public void askPermissionIfNeeded(){
@@ -80,21 +86,21 @@ public class SaveFileActivity extends AppCompatActivity implements GoogleApiClie
     @Override
     protected void onResume() {
         super.onResume();
-        client.connect();
+//        client.connect();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        Wearable.DataApi.removeListener(client, this);
-        client.disconnect();
+//        Wearable.DataApi.removeListener(client, this);
+//        client.disconnect();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        Wearable.DataApi.removeListener(client, this);
-        client.disconnect();
+//        Wearable.DataApi.removeListener(client, dataListener);
+//        client.disconnect();
     }
 
     @Override
@@ -136,6 +142,52 @@ public class SaveFileActivity extends AppCompatActivity implements GoogleApiClie
         }
     }
 
+    GoogleApiClient.ConnectionCallbacks connectionCallbacks = new GoogleApiClient.ConnectionCallbacks() {
+        @Override
+        public void onConnected(Bundle bundle) {
+            Log.v(TAG, "Connected");
+            Wearable.DataApi.addListener(client, dataListener);
+        }
+
+        @Override
+        public void onConnectionSuspended(int i) {
+            Log.e(TAG, "Connection has been suspended on int " + i);
+        }
+    };
+
+    GoogleApiClient.OnConnectionFailedListener onConnectionFailedListener = new GoogleApiClient.OnConnectionFailedListener() {
+        @Override
+        public void onConnectionFailed(ConnectionResult connectionResult) {
+            Log.e(TAG, "Connection has failed: \n" + connectionResult.getErrorMessage());
+        }
+    };
+
+    DataApi.DataListener dataListener = new DataApi.DataListener() {
+        @Override
+        public void onDataChanged(DataEventBuffer dataEventBuffer) {
+            for (DataEvent event : dataEventBuffer) {
+                if (event.getType() == DataEvent.TYPE_CHANGED) {
+                    DataItem item = event.getDataItem();
+
+                    Log.i(TAG, item.getUri().getPath());
+
+                    if (item.getUri().getPath().startsWith(PATH)) {
+                        DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
+                        log = dataMap.getString(MAPKEY_LOG);
+                        Log.i(TAG, "log is " + log);
+                        sb.append(log);
+                    }else if(item.getUri().getPath().startsWith("/stop")){
+                        askPermissionIfNeeded();
+                        Log.i(TAG, "STOP");
+                    }
+                } else if (event.getType() == DataEvent.TYPE_DELETED) {
+                    // DataItem deleted
+                } else {
+                    Log.i(TAG, "EVENT TYPE IS " + event.getType());
+                }
+            }
+        }
+    };
 
 
 }
